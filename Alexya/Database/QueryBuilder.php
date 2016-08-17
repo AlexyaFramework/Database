@@ -1,8 +1,6 @@
 <?php
 namespace Alexya\Database;
 
-use \PDO;
-
 /**
  * Query builder class
  *
@@ -38,16 +36,16 @@ class QueryBuilder
     /**
      * Database connection
      *
-     * @var \PDO
+     * @var \Alexya\Database\Connection
      */
     private $_connection;
 
     /**
      * Constructor
      *
-     * @param \PDO $connection Database connection
+     * @param \Alexya\Database\Connection $connection Database connection
      */
-    public function __construct(PDO $connection)
+    public function __construct(Connection $connection)
     {
         $this->_connection = $connection;
     }
@@ -505,6 +503,16 @@ class QueryBuilder
      */
     public function sanitize(string $input) : string
     {
-        return $this->_connection->quote($input);
+        return $this->_connection->getConnection()->quote($input);
+    }
+
+    /**
+     * Executes the query.
+     *
+     * @return array The result of the query.
+     */
+    public function execute() : array
+    {
+        return $this->_connection->execute($this->getQuery());
     }
 }
