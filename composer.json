@@ -1,7 +1,8 @@
 {
+
 	"name": "alexya-framework/database",
 	"type": "framework",
-    "version": "3.0.0",
+    "version": "3.0.1",
 	"description": "Alexya's Database utilities",
 	"keywords": ["php", "framework", "database", "querybuilder", "orm", "php7", "alexya"],
 	"license": "GNU",
