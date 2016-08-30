@@ -8,7 +8,7 @@ namespace Alexya\Database\Exceptions;
  *
  * @author Manulaiko <manulaiko@gmail.com>
  */
-class ConnectionFailed extends Exception
+class ConnectionFailed extends \Exception
 {
     /**
      * Constructor.
