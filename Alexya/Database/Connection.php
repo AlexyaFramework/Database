@@ -1,7 +1,10 @@
 <?php
 namespace Alexya\Database;
 
-use \Alexya\Database\Exceptions\ConnectionFailed;
+use \Alexya\Database\Exceptions\{
+    ConnectionFailed,
+    QueryFailed
+};
 
 use \PDO;
 use \PDOException;
@@ -109,8 +112,11 @@ class Connection
         $this->_port     = $port;
         $this->_username = $username;
         $this->_password = $password;
+        $this->_database = $database;
         $this->_type     = $type;
         $this->_options  = $options;
+
+        $this->connect();
     }
 
     /**
@@ -191,7 +197,7 @@ class Connection
 
         return $result;
     }
-    
+
     ///////////////////////////////////
     // Start Query generation metdos //
     ///////////////////////////////////

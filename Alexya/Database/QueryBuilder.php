@@ -503,7 +503,12 @@ class QueryBuilder
      */
     public function sanitize(string $input) : string
     {
-        return $this->_connection->getConnection()->quote($input);
+        return $input;
+
+        $input = $this->_connection->getConnection()->quote($input);
+        $input = substr($input, 1, strlen($input) - 1);
+
+        return substr($input, -1);
     }
 
     /**

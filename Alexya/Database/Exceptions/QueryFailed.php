@@ -8,7 +8,7 @@ namespace Alexya\Database\Exceptions;
  *
  * @author Manulaiko <manulaiko@gmail.com>
  */
-class QueryFailed extends Exception
+class QueryFailed extends \Exception
 {
     /**
      * Constructor.

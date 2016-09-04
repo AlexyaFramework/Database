@@ -151,7 +151,7 @@ class Model
 
         if(is_numeric($id)) {
             $query->where([
-                $model->_primaryKey = $id
+                $model->_primaryKey => $id
             ]);
         } else {
             $query->where($id);
@@ -176,6 +176,30 @@ class Model
 
         return $return;
     }
+
+    /**
+     * Returns all records from database.
+     *
+     * @return array Records from database.
+     */
+    public static function all() : array
+    {
+        $query = new QueryBuilder(self::$_connection);
+        $model = new static();
+
+        $query->select("*")
+              ->from($model->getTable());
+
+        $result = $query->execute();
+        $return = [];
+
+        foreach($result as $r) {
+            $return[] = new static($r);
+        }
+
+        return $return;
+    }
+
     ///////////////////////////////////////
     // End Static methods and properties //
     ///////////////////////////////////////
@@ -213,7 +237,7 @@ class Model
      *
      * @param array|null $columns Record columns, if `null` it will assume is a new record.
      */
-    public function __constrcut($columns)
+    public function __construct($columns = null)
     {
         if($columns == null) {
             $this->_isInsert = true;
@@ -222,6 +246,18 @@ class Model
         }
 
         $this->_data = $columns;
+
+        $this->onInstance();
+    }
+
+    /**
+     * On instance method.
+     *
+     * Is executed once the constructor has finished.
+     */
+    public function onInstance()
+    {
+        
     }
 
     /**
@@ -302,9 +338,11 @@ class Model
             return $this->_table;
         }
 
-        $class = explode("\\", str_replace(self::$_baseNamespace, get_called_class()));
-        $_table = Str::snake(Str::plural($class));
+        $class = explode("\\", str_replace(self::$_baseNamespace, "", "\\".get_called_class()));
+        $table = Str::snake(Str::plural($class));
 
-        return $_table;
+        $this->_table = $table;
+
+        return $this->_table;
     }
 }
