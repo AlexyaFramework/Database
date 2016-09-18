@@ -373,6 +373,7 @@ Model::initialize($connection, "\Application\ORM");
 You should write a class that extends this for each model, but when you're following the naming conventions
 you'll surely finish with a package full of empty classes.
 To prevent this you can use the method `instance` which accepts as parameter the name of the database table.
+Also, all static methods accepts as last parameter the name of the table.
 
 Extending this class allows you to take more control over it. You can specify the name of the table, the name of
 the primary key, relations...
