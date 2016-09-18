@@ -25,6 +25,7 @@ use \Alexya\Tools\Str;
  * the naming conventions you'll surely finish with a package full of empty classes.
  * To prevent this you can use the method `instance` which accepts as parameter the name
  * of the database table.
+ * Also, all static methods accepts as last parameter the name of the table that will be used.
  *
  * Extending this class allows you to take more control over it. You can specify
  * the name of the table, the name of the primary key, relations...
@@ -110,7 +111,7 @@ class Model
     /**
      * Returns a new instance of the class.
      *
-     * @param string $table Table name
+     * @param string $table Table name.
      *
      * @return \Alexya\Database\ORM\Model Instance of the class.
      */
@@ -125,11 +126,16 @@ class Model
     /**
      * Creates a new record.
      *
+     * @param string $table Table that the model is representing.
+     *
      * @return \Alexya\Database\ORM\Model Record instance.
      */
-    public static function create() : Model
+    public static function create(string $table = "") : Model
     {
-        return new static();
+        $model = new static();
+        $model->_table = $table;
+
+        return $model
     }
 
     /**
@@ -138,16 +144,22 @@ class Model
      * @param int|string|array $id    Primary key value or `WHERE` clause.
      * @param int              $limit Amount of records to retrieve from database,
      *                                if `-1` an instance of the Model class will be returned.
+     * @param string           $table Table that will be used to get the records from.
      *
      * @return \Alexya\Database\ORM\Model|array Records from the database.
      */
-    public static function find($id, int $limit = -1)
+    public static function find($id, int $limit = -1, string $table = "")
     {
         $query = new QueryBuilder(self::$_connection);
         $model = new static();
 
-        $query->select("*")
-              ->from($model->getTable());
+        $query->select("*");
+
+        if($table == "") {
+            $query->from($model->getTable());
+        } else {
+            $query->from($table)
+        }
 
         if(is_numeric($id)) {
             $query->where([
@@ -180,15 +192,57 @@ class Model
     /**
      * Returns all records from database.
      *
+     * @param string $table Table that will be used to get the records from.
+     *
      * @return array Records from database.
      */
-    public static function all() : array
+    public static function all(string $table = "") : array
     {
         $query = new QueryBuilder(self::$_connection);
         $model = new static();
 
-        $query->select("*")
-              ->from($model->getTable());
+        $query->select("*");
+
+        if($table == "") {
+            $query->from($model->getTable());
+        } else {
+            $query->from($table)
+        }
+
+        $result = $query->execute();
+        $return = [];
+
+        foreach($result as $r) {
+            $return[] = new static($r);
+        }
+
+        return $return;
+    }
+
+    /**
+     * Retruns the latest records from database.
+     *
+     * @param int    $length Length of the array.
+     * @param string $column Column to order the records (default = "id").
+     * @param string $table  Table that will be used to get the records from.
+     *
+     * @return array Records from database.
+     */
+    public static function latest(int $length = 10, string $column = "id", string $table = "") : array
+    {
+        $query = new QueryBuilder(self::$_connection);
+        $model = new static();
+
+        $query->select("*");
+
+        if($table == "") {
+            $query->from($model->getTable());
+        } else {
+            $query->from($table)
+        }
+
+        $query->orderBy($column)
+              ->limit($length);
 
         $result = $query->execute();
         $return = [];
@@ -257,7 +311,7 @@ class Model
      */
     public function onInstance()
     {
-        
+
     }
 
     /**
