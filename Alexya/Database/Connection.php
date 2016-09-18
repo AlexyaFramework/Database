@@ -141,8 +141,8 @@ class Connection
                 $this->_password
             );
         } catch(PDOException $e) {
-            $code    = $e->errorInfo()[1];
-            $message = $e->errorInfo()[2];
+            $code    = $e->getCode();
+            $message = $e->getMessage();
 
             throw new ConnectionFailed($code, $message);
         }
@@ -166,6 +166,16 @@ class Connection
     public function getConnection() : PDO
     {
         return $this->_connection;
+    }
+
+    /**
+     * Returns last error message.
+     *
+     * @return string Last error message.
+     */
+    public function getError() : string
+    {
+        return ($this->_connection->errorInfo()[2] ?? "undefined");
     }
 
     /**
@@ -222,11 +232,11 @@ class Connection
      *
      * @return \Alexya\Database\Queries\Insert INSERT query builder.
      */
-    public function insert(string $table) : Insert
+    public function insert() : int
     {
-        $query = new Insert($this);
+        $this->execute(... func_get_args());
 
-        return $query->into($table);
+        return $this->_connection->lastInsertId();
     }
 
     /**
