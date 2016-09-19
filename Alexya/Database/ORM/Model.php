@@ -87,14 +87,90 @@ class Model
      *
      * @var \Alexya\Database\Connection
      */
-    private static $_connection;
+    protected static $_connection;
 
     /**
      * Base namespace of the ORM classes.
      *
      * @var string
      */
-    private static $_baseNamespace = "\\";
+    protected static $_baseNamespace = "\\";
+
+    /**
+     * Relations array.
+     *
+     * Each index of this array will be interpreted
+     * as a relation rule.
+     *
+     * A rule can be:
+     *
+     *  * A string being the class name of the Model class that
+     *    represents the table or the table name (if the class doesn't exist).
+     *  * An array containing the configuration of the rule.
+     *
+     * The array can have the following index:
+     *
+     *  * `localKey`: Name of the local key used for the relation
+     *                (defaults to the foreign table name followed by the local primary key).
+     *  * `foreignKey`: Name of the foreign key used for the relation
+     *                  (defaults to the foreign primary key).
+     *  * `type`: Type of the relation (`has_one` or `has_many`)
+     *            (defaults to `has_one`).
+     *  * `name`: Name of the property to create for the resulting relation
+     *            (defaults to the name of the class).
+     *  * `amount`: Amount of records to retrieve for the relation
+     *              (defaults to all records in the table).
+     *  * `class`: Name of the class that will be instanced for the relation
+     *             (defaults to the Model class of the foreign table in case
+     *             of a `has_one` relation and an array of Model classes of
+     *             the foreign table in case of a `has_many` relation).
+     *  * `setRelations`: Whether the instanced models of the relation should process
+     *                    their relations array too or not
+     *                    (defaults to `false`).
+     *
+     * Example:
+     *
+     *     class User extends Model
+     *     {
+     *         protected static $_relations = [
+     *             "Account" => [
+     *                 "localKey"     => "accounts_id", // Default value
+     *                 "foreignKey"   => "id", // Default value
+     *                 "name"         => "Account", // Default value
+     *                 "type"         => "has_one", // Default value
+     *                 "amount"       => 1, // Unnecessary
+     *                 "class"        => "Account", // Default value
+     *                 "setRelations" => false // Default value
+     *             ]
+     *         ];
+     *     }
+     *
+     *     class User extends Model
+     *     {
+     *         protected static $_relations = [
+     *             "Account"
+     *         ];
+     *     }
+     *
+     *     class User extends Model
+     *     {
+     *         protected static $_relations = [
+     *             "Message" => [
+     *                 "localKey"   => "id",
+     *                 "foreignKey" => "to_users_id",
+     *                 "type"       => "has_many",
+     *                 "condition"  => "User::messageIsNotDeleted"
+     *             ]
+     *         ];
+     *
+     *         public static function messageIsNotDeleted(array $columns) : bool
+     *         {
+     *             return (!$columns["to_isDeleted"]);
+     *         }
+     *     }
+     * @var array
+     */
+    protected static $_relations = [];
 
     /**
      * Initializes the class.
@@ -111,7 +187,7 @@ class Model
     /**
      * Returns a new instance of the class.
      *
-     * @param string $table Table name.
+     * @param string $table Table name
      *
      * @return \Alexya\Database\ORM\Model Instance of the class.
      */
@@ -126,8 +202,6 @@ class Model
     /**
      * Creates a new record.
      *
-     * @param string $table Table that the model is representing.
-     *
      * @return \Alexya\Database\ORM\Model Record instance.
      */
     public static function create(string $table = "") : Model
@@ -135,20 +209,21 @@ class Model
         $model = new static();
         $model->_table = $table;
 
-        return $model
+        return $model;
     }
 
     /**
      * Finds and returns one or more record from the database.
      *
-     * @param int|string|array $id    Primary key value or `WHERE` clause.
-     * @param int              $limit Amount of records to retrieve from database,
-     *                                if `-1` an instance of the Model class will be returned.
-     * @param string           $table Table that will be used to get the records from.
+     * @param int|string|array $id           Primary key value or `WHERE` clause.
+     * @param int              $limit        Amount of records to retrieve from database,
+     *                                       if `-1` an instance of the Model class will be returned.
+     * @param string           $table        Table that will be used to get the records from.
+     * @param bool             $setRelations Whether relations should be processed or not.
      *
      * @return \Alexya\Database\ORM\Model|array Records from the database.
      */
-    public static function find($id, int $limit = -1, string $table = "")
+    public static function find($id, int $limit = -1, string $table = "", bool $setRelations = true)
     {
         $query = new QueryBuilder(self::$_connection);
         $model = new static();
@@ -158,7 +233,7 @@ class Model
         if($table == "") {
             $query->from($model->getTable());
         } else {
-            $query->from($table)
+            $query->from($table);
         }
 
         if(is_numeric($id)) {
@@ -180,10 +255,20 @@ class Model
 
         foreach($result as $r) {
             if($limit < 0) {
-                return new static($r);
+                $model = new static($r, $setRelations);
+                if($table != "") {
+                    $model->_table = $table;
+                }
+
+                return $model;
             }
 
-            $return[] = new static($r);
+            $model = new static($r, $setRelations);
+            if($table != "") {
+                $model->_table = $table;
+            }
+
+            $return[] = $model;
         }
 
         return $return;
@@ -192,28 +277,39 @@ class Model
     /**
      * Returns all records from database.
      *
-     * @param string $table Table that will be used to get the records from.
+     * @param array  $where        Where clause array.
+     * @param string $table        Table that will be used to get the records from.
+     * @param bool   $setRelations Whether relations should be processed or not.
      *
      * @return array Records from database.
      */
-    public static function all(string $table = "") : array
+    public static function all(array $where = [], string $table = "", bool $setRelations = true) : array
     {
         $query = new QueryBuilder(self::$_connection);
-        $model = new static();
 
         $query->select("*");
 
         if($table == "") {
+            $model = new static();
             $query->from($model->getTable());
         } else {
-            $query->from($table)
+            $query->from($table);
+        }
+
+        if(!empty($where)) {
+            $query->where($where);
         }
 
         $result = $query->execute();
         $return = [];
 
         foreach($result as $r) {
-            $return[] = new static($r);
+            $model = new static($r, $setRleations);
+            if($table != "") {
+                $model->_table = $table;
+            }
+
+            $return[] = $model;
         }
 
         return $return;
@@ -222,13 +318,14 @@ class Model
     /**
      * Retruns the latest records from database.
      *
-     * @param int    $length Length of the array.
-     * @param string $column Column to order the records (default = "id").
-     * @param string $table  Table that will be used to get the records from.
+     * @param int    $length       Length of the array.
+     * @param string $column       Column to order the records (default = "id").
+     * @param string $table        Table that will be used to get the records from.
+     * @param bool   $setRelations Whether relations should be processed or not.
      *
      * @return array Records from database.
      */
-    public static function latest(int $length = 10, string $column = "id", string $table = "") : array
+    public static function latest(int $length = 10, string $column = "id", string $table = "", bool $setRelations = true) : array
     {
         $query = new QueryBuilder(self::$_connection);
         $model = new static();
@@ -238,17 +335,22 @@ class Model
         if($table == "") {
             $query->from($model->getTable());
         } else {
-            $query->from($table)
+            $query->from($table);
         }
 
-        $query->orderBy($column)
+        $query->order($column)
               ->limit($length);
 
         $result = $query->execute();
         $return = [];
 
         foreach($result as $r) {
-            $return[] = new static($r);
+            $model = new static($r, $setRelations);
+            if($table != "") {
+                $model->_table = $table;
+            }
+
+            $return[] = $model;
         }
 
         return $return;
@@ -287,11 +389,19 @@ class Model
     protected $_data = [];
 
     /**
+     * Changed columns.
+     *
+     * @var array
+     */
+    protected $_changed = [];
+
+    /**
      * Constructor.
      *
-     * @param array|null $columns Record columns, if `null` it will assume is a new record.
+     * @param array|null $columns      Record columns, if `null` it will assume is a new record.
+     * @param bool       $setRealtions Whether the releations array should be processed or not.
      */
-    public function __construct($columns = null)
+    public function __construct($columns = null, bool $setRelations = false)
     {
         if($columns == null) {
             $this->_isInsert = true;
@@ -300,6 +410,10 @@ class Model
         }
 
         $this->_data = $columns;
+
+        if($setRelations) {
+            $this->_setRelations();
+        }
 
         $this->onInstance();
     }
@@ -312,6 +426,240 @@ class Model
     public function onInstance()
     {
 
+    }
+
+    /**
+     * Sets ORM relations.
+     *
+     * It processes the `$_relations` array and sets the objects from
+     * the database.
+     *
+     * The array contains the list of the relations. Each index can be
+     * either a string being the name of Model class representing the table
+     * for the relation, or an array if you need to modify some parameters.
+     * If the index is an array, the key must be the name of the Model class,
+     *
+     * The name of the Model class can start with the preffix sent to the
+     * `initialize` method, or the name of table.
+     *
+     * Example:
+     *
+     *     class User extends Model
+     *     {
+     *         protected static $_relations = [
+     *             "Message" => [
+     *                 "type" => "has_many"
+     *             ],
+     *             "Configuration"
+     *         ]
+     *     }
+     *
+     * This example will make two relations:
+     *
+     *  * One for the table `messages`
+     *  * One for the table `configurations`
+     *
+     * The relation for the `messages` table will load all records
+     * from the database that matches the local/foreign key relation.
+     *
+     * By default, the local key is the name of the local table followed by
+     * the primary key of the foreign table, and the foreign key is the
+     * primary key of the foreign table.
+     *
+     * So, given that `User and `Messages` follows the standards of this class
+     * the local key would be `messages_id` and the foreign key would
+     * be `id`, so the generated query would be `SELECT * FROM messages WHERE id=users.messages_id;`.
+     *
+     * For overriding the default local key change the index `localKey` and for
+     * overriding the default foreign key, change the index `foreignKey`.
+     *
+     * As the message have a sender and a recipient, assuming that the `id` column
+     * on the `messages` table is the `messages_id` of the user is wrong, so instead
+     * we change the foreign key to a more suitable one: `to_users_id`
+     *
+     *     class User extends Model
+     *     {
+     *         protected static $_relations = [
+     *             "Message" => [
+     *                 "type"       => "has_many",
+     *                 "foreignKey" => "to_users_id"
+     *             ],
+     *             "Configuration"
+     *         ]
+     *     }
+     *
+     * By default all the relations are `one to one`, meaning that only one
+     * from the database will be fetched.
+     *
+     * As the user might have more than one message, we change the relation
+     * type by changing the `type` index in the value.
+     *
+     * After this, we are able to access to all messages sent to the user
+     * through the property `$user->Message` which would be an array with
+     * all `Message` classes representing the records from the database.
+     *
+     * However, calling that property `Message` isn't the best option since it's
+     * not a single message, but a collection of messages.
+     * We can change this name by setting the `name` index to something different.
+     *
+     *     class User extends Model
+     *     {
+     *         protected static $_relations = [
+     *             "Message" => [
+     *                 "type"       => "has_many",
+     *                 "foreignKey" => "to_users_id",
+     *                 "name"       => "Messages"
+     *             ],
+     *             "Configuration"
+     *         ]
+     *     }
+     *
+     * Now all messages are in the `$user->Messages` property.
+     *
+     * Another thing that we would like to change is the amount of records
+     * to retrieve from the database and Whether the instanced models should process
+     * their relations too. We can do this by changing the index `amount` and `setRelations`
+     * respectively.
+     *
+     * Finally, we can decide if we should retrieve the messages only if the
+     * user has verified his email, we do this with the index `condition`, which
+     * is a closure that should return a boolean telling if the relation should be
+     * processed or not.
+     *
+     * The closure must accept as parameter an array that will contain the
+     * result of the query.
+     *
+     *     class User extends Model
+     *     {
+     *         protected static $_relations = [
+     *             "Message" => [
+     *                 "type"       => "has_many",
+     *                 "foreignKey" => "to_users_id",
+     *                 "name"       => "Messages",
+     *                 "condition"  => "User::canSetMessage"
+     *             ],
+     *             "Configuration"
+     *         ]
+     *
+     *         public static function canSetMessage(array $columns) : bool
+     *         {
+     *             // Check that the user has verified his email
+     *             if(!$this->email_isVerified) {
+     *                 return false;
+     *             }
+     *
+     *             // Check that the message isn't deleted by the user
+     *             if($columns["to_isDeleted"]) {
+     *                 return false;
+     *             }
+     *
+     *             return true;
+     *         }
+     *     }
+     *
+     * For more information about the possible values of the array see
+     * the documentation for the `$_relations` property.
+     */
+    protected function _setRelations()
+    {
+        foreach(static::$_relations as $class => $options) {
+            $result = [];
+
+            // Check that `$class` is the actual class name and `$options` is
+            // the actual configuration array.
+            if(!is_array($options)) {
+                $class   = $options;
+                $options = [];
+            }
+
+            $table = "";
+            if(!Str::startsWith($class, static::$_baseNamespace)) {
+                $class = static::$_baseNamespace . $class;
+            }
+
+            if(!class_exists($class)) {
+                $table = substr($class, strlen(static::$_baseNamespace), strlen($class));
+                $class = "\Alexya\Database\ORM\Model";
+            }
+
+            $local   = new static();
+            $foreign = new $class();
+
+            // Normalize `$options` array
+            // Relation type (has_one, has_many)
+            if(empty($options["type"])) {
+                $options["type"] = "has_one";
+            }
+            // Name of the property to create
+            if(empty($options["name"])) {
+                $options["name"] = str_replace(static::$_baseNamespace, "", $class);
+                $options["name"] = explode("\\", $class);
+                $options["name"] = $options["name"][count($options["name"]) - 1];
+            }
+            // Whether the instanced models should process their relations
+            if(empty($options["setRelations"])) {
+                $options["setRelations"] = false;
+            }
+            // Amount of records to get
+            if(empty($options["amount"])) {
+                $options["amount"] = -1;
+            }
+            // Model class representing the table
+            if(empty($options["class"])) {
+                $options["class"] = $class;
+            }
+            // Local key (foreign_table_local_primary_key)
+            if(empty($options["localKey"])) {
+                $options["localKey"] = $foreign->getTable()."_".$local->_primaryKey;
+                if($table != "") {
+                    $options["localKey"] = $table."_".$local->_primaryKey;
+                }
+            }
+            // foreign key (foreign_primary_key)
+            if(empty($options["foreignKey"])) {
+                $options["foreignKey"] = $foreign->_primaryKey;
+            }
+
+            // Retrieve the records from the database.
+            if($options["type"] == "has_one") {
+                // `has_one` relations have only one record
+                // Find it given the fact that the `foreignKey` should be
+                // the value as `localKey`
+                $result = ($options["class"])::find([
+                    $options["foreignKey"] => $this->_data[$options["localKey"]]
+                ], -1, $table, $options["setRelations"]);
+            } else if($options["type"] == "has_many") {
+                // `has_many` relations have many records,
+                // Retrieve all of them, getting the specified amount of records
+                // and where the `foreignKey` is the same as `localKey`
+                $res = ($class)::find([
+                    $options["foreignKey"] => $this->_data[$options["localKey"]]
+                ], $options["amount"], $table, $options["setRelations"]);
+
+                $result = $res;
+                // Now that we have all records that matches the local/foreign key
+                // we must process them so they passes user defined condition
+                if(
+                    !empty($options["condition"]) &&
+                    is_callable($options["condition"])
+                ) {
+                    foreach($res as $r) {
+                        if(!$options["condition"]($r)) {
+                            continue;
+                        }
+
+                        $result[] = $r;
+                    }
+                }
+            }
+
+            // Now, the user might have specified a different class
+            // for instancing, so just do it.
+            $this->_data[$options["name"]] = $result;
+            if($options["class"] != $class) {
+                $this->_data[$options["name"]] = new $options["class"]($result);
+            }
+        }
     }
 
     /**
@@ -334,7 +682,8 @@ class Model
      */
     public function set(string $name, $value)
     {
-        $this->_data[$name] = $value;
+        $this->_data[$name]    = $value;
+        $this->_changed[$name] = $value;
     }
 
     /**
@@ -369,12 +718,12 @@ class Model
 
         if($this->_isInsert) {
             $query->insert($this->getTable())
-                  ->value($this->_data);
+                  ->values($this->_data);
         } else {
             $query->update($this->getTable())
-                  ->set($this->_data)
+                  ->set($this->_changed)
                   ->where([
-                      $this->_primaryKey = $this->_data[$this->_primaryKey]
+                      $this->_primaryKey => $this->_data[$this->_primaryKey]
                   ]);
         }
 
