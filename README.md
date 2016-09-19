@@ -22,6 +22,7 @@ Contents
        - [Reading records](#reading_records)
        - [Updating records](#updating_records)
        - [Deleting records](#deleting_records)
+    - [Relations](#relations)
 
 <a name="connection"></a>
 Connection
@@ -483,4 +484,142 @@ To delete records you must call the method `\Alexya\Database\ORM\Model::delete`:
 $user = UsersTable::find(1); // SELECT * FROM `users` WHERE `usersID`=1
 
 $user->delete(); // DELETE FROM `users` WHERE `userID`=1
+```
+
+<a name="relations"></a>
+### Relations
+The relations are established between two tables that share something in common.
+
+The `\Alexya\Database\ORM\Model` class offers an easy way for establishing relations
+through the static property `$_relations`, which can be public or protected, but never private.
+
+The `$_relations` property is an array.
+Each index of this array will be interpreted as a relation rule.
+
+A rule can be:
+
+ * A string being the class name of the Model class that represents the table or the table name (if the class doesn't exist).
+ * An array containing the configuration of the rule.
+
+If the index is an array, the key must be the name of the Model class and can have the following index:
+
+ * `localKey`: Name of the local key used for the relation (defaults to the foreign table name followed by the local primary key).
+ * `foreignKey`: Name of the foreign key used for the relation (defaults to the foreign primary key).
+ * `type`: Type of the relation (`has_one` or `has_many`) (defaults to `has_one`).
+ * `name`: Name of the property to create for the resulting relation (defaults to the name of the class).
+ * `amount`: Amount of records to retrieve for the relation (defaults to all records in the table).
+ * `class`: Name of the class that will be instanced for the relation (defaults to the Model class of the foreign table in case of a `has_one` relation and an array of Model classes of the foreign table in case of a `has_many` relation).
+ * `setRelations`: Whether the instanced models of the relation should process their relations array too or not (defaults to `false`).
+
+The name of the Model class can either start with the prefix sent to the `initialize` method, or the name of table.
+
+Example:
+
+```php
+<?php
+
+class User extends Model
+{
+    protected static $_relations = [
+        "Message" => [
+            "type" => "has_many"
+        ],
+        "Configuration"
+    ]
+}
+```
+
+This example will make two relations:
+
+ * One for the table `messages`.
+ * One for the table `configurations`.
+
+The relation for the `messages` table will load all records from the database that matches the local/foreign key relation.
+
+By default, the local key is the name of the local table followed by the primary key of the foreign table, and the foreign key is the primary key of the foreign table.
+
+So, given that `User and `Messages` follows the standards of this class the local key would be `messages_id` and the foreign key would be `id`, so the generated query would be `SELECT * FROM messages WHERE id=users.messages_id;`.
+
+For overriding the default local key change the index `localKey` and for overriding the default foreign key, change the index `foreignKey`.
+
+As the message have a sender and a recipient, assuming that the `id` column on the `messages` table is the `messages_id` of the user is wrong, so instead we change the foreign key to a more suitable one: `to_users_id`
+
+```php
+<?php
+
+class User extends Model
+{
+    protected static $_relations = [
+        "Message" => [
+            "type"       => "has_many",
+            "foreignKey" => "to_users_id"
+        ],
+        "Configuration"
+    ]
+}
+```
+
+By default all the relations are `one to one`, meaning that only one from the database will be fetched.
+
+As the user might have more than one message, we change the relation type by changing the `type` index in the value.
+
+After this, we are able to access to all messages sent to the user through the property `$user->Message` which would be an array with all `Message` classes representing the records from the database.
+
+However, calling that property `Message` isn't the best option since it's not a single message, but a collection of messages.
+We can change this name by setting the `name` index to something different.
+
+```php
+<?php
+
+class User extends Model
+{
+    protected static $_relations = [
+        "Message" => [
+            "type"       => "has_many",
+            "foreignKey" => "to_users_id",
+            "name"       => "Messages"
+        ],
+        "Configuration"
+    ]
+}
+```
+
+Now all messages are in the `$user->Messages` property.
+
+Another thing that we would like to change is the amount of records to retrieve from the database and Whether the instanced models should process their relations too. We can do this by changing the index `amount` and `setRelations` respectively.
+
+Finally, we can decide if we should retrieve the messages only if the user has verified his email, we do this with the index `condition`, which is a closure that should return a boolean telling if the relation should be processed or not.
+
+The closure must accept as parameter an array that will contain the result of the query.
+
+```php
+<?php
+
+class User extends Model
+{
+    protected static $_relations = [
+        "Message" => [
+            "type"       => "has_many",
+            "foreignKey" => "to_users_id",
+            "name"       => "Messages",
+            "condition"  => "User::canSetMessage"
+        ],
+        "Configuration"
+    ]
+
+    public static function canSetMessage(array $columns) : bool
+    {
+        // Check that the user has verified his email
+        if(!$this->email_isVerified) {
+            return false;
+        }
+
+        // Check that the message isn't deleted by the user
+        if($columns["to_isDeleted"]) {
+            return false;
+        }
+
+        return true;
+    }
+}
 ```
