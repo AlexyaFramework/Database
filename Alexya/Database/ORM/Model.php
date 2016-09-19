@@ -215,14 +215,15 @@ class Model
     /**
      * Finds and returns one or more record from the database.
      *
-     * @param int|string|array $id    Primary key value or `WHERE` clause.
-     * @param int              $limit Amount of records to retrieve from database,
-     *                                if `-1` an instance of the Model class will be returned.
-     * @param string           $table Table that will be used to get the records from.
+     * @param int|string|array $id           Primary key value or `WHERE` clause.
+     * @param int              $limit        Amount of records to retrieve from database,
+     *                                       if `-1` an instance of the Model class will be returned.
+     * @param string           $table        Table that will be used to get the records from.
+     * @param bool             $setRelations Whether relations should be processed or not.
      *
      * @return \Alexya\Database\ORM\Model|array Records from the database.
      */
-    public static function find($id, int $limit = -1, string $table = "")
+    public static function find($id, int $limit = -1, string $table = "", bool $setRelations = true)
     {
         $query = new QueryBuilder(self::$_connection);
         $model = new static();
@@ -254,7 +255,7 @@ class Model
 
         foreach($result as $r) {
             if($limit < 0) {
-                $model = new static($r);
+                $model = new static($r, $setRelations);
                 if($table != "") {
                     $model->_table = $table;
                 }
@@ -262,7 +263,7 @@ class Model
                 return $model;
             }
 
-            $model = new static($r);
+            $model = new static($r, $setRelations);
             if($table != "") {
                 $model->_table = $table;
             }
@@ -276,12 +277,13 @@ class Model
     /**
      * Returns all records from database.
      *
-     * @param array  $where Where clause array.
-     * @param string $table Table that will be used to get the records from.
+     * @param array  $where        Where clause array.
+     * @param string $table        Table that will be used to get the records from.
+     * @param bool   $setRelations Whether relations should be processed or not.
      *
      * @return array Records from database.
      */
-    public static function all(array $where = [], string $table = "") : array
+    public static function all(array $where = [], string $table = "", bool $setRelations = true) : array
     {
         $query = new QueryBuilder(self::$_connection);
 
@@ -302,7 +304,7 @@ class Model
         $return = [];
 
         foreach($result as $r) {
-            $model = new static($r);
+            $model = new static($r, $setRleations);
             if($table != "") {
                 $model->_table = $table;
             }
@@ -316,13 +318,14 @@ class Model
     /**
      * Retruns the latest records from database.
      *
-     * @param int    $length Length of the array.
-     * @param string $column Column to order the records (default = "id").
-     * @param string $table  Table that will be used to get the records from.
+     * @param int    $length       Length of the array.
+     * @param string $column       Column to order the records (default = "id").
+     * @param string $table        Table that will be used to get the records from.
+     * @param bool   $setRelations Whether relations should be processed or not.
      *
      * @return array Records from database.
      */
-    public static function latest(int $length = 10, string $column = "id", string $table = "") : array
+    public static function latest(int $length = 10, string $column = "id", string $table = "", bool $setRelations = true) : array
     {
         $query = new QueryBuilder(self::$_connection);
         $model = new static();
@@ -342,7 +345,7 @@ class Model
         $return = [];
 
         foreach($result as $r) {
-            $model = new static($r);
+            $model = new static($r, $setRelations);
             if($table != "") {
                 $model->_table = $table;
             }
@@ -398,7 +401,7 @@ class Model
      * @param array|null $columns      Record columns, if `null` it will assume is a new record.
      * @param bool       $setRealtions Whether the releations array should be processed or not.
      */
-    public function __construct($columns = null, bool $setRelations = true)
+    public function __construct($columns = null, bool $setRelations = false)
     {
         if($columns == null) {
             $this->_isInsert = true;
@@ -624,14 +627,14 @@ class Model
                 // the value as `localKey`
                 $result = ($options["class"])::find([
                     $options["foreignKey"] => $this->_data[$options["localKey"]]
-                ], -1, $table);
+                ], -1, $table, $options["setRelations"]);
             } else if($options["type"] == "has_many") {
                 // `has_many` relations have many records,
                 // Retrieve all of them, getting the specified amount of records
                 // and where the `foreignKey` is the same as `localKey`
                 $res = ($class)::find([
                     $options["foreignKey"] => $this->_data[$options["localKey"]]
-                ], $options["amount"], $table);
+                ], $options["amount"], $table, $options["setRelations"]);
 
                 $result = $res;
                 // Now that we have all records that matches the local/foreign key
