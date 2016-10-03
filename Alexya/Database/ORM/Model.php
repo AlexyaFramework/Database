@@ -748,4 +748,57 @@ class Model
 
         return $this->_table;
     }
+
+    /**
+     * Returns raw columns.
+     *
+     * @return array Raw columns.
+     */
+    public function columns() : array
+    {
+        return $this->_data;
+    }
+
+    /**
+     * Returns changed columns.
+     *
+     * @return array Changed columns.
+     */
+    public function changed() : array
+    {
+        return $this->_changed;
+    }
+
+    /**
+     * Encodes the model and returns it as JSON.
+     *
+     * @return string Model as json.
+     */
+    public function asJSON() : string
+    {
+        return json_encode($this->asDecodedJSON());
+    }
+
+    /**
+     * Parses and decodes all json columns.
+     *
+     * @return array Columns with decoded json.
+     */
+    public function asDecodedJSON() : array
+    {
+        $json = [];
+        foreach($this->_data as $key => $value) {
+            $json[$key] = $value;
+
+            $temp = @json_decode($value);
+            if(
+                json_last_error() == JSON_ERROR_NONE ||
+                $temp != null
+            ) {
+                $json[$key] = $temp;
+            }
+        }
+
+        return $json;
+    }
 }
