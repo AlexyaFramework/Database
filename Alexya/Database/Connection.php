@@ -12,7 +12,7 @@ use \PDOException;
 /**
  * Connection class.
  *
- * This class stablish a connection to a database to perform queries.
+ * This class stabilises a connection to a database to perform queries.
  *
  * The constructor accepts the following parameters:
  *
@@ -84,7 +84,7 @@ class Connection
     /**
      * Connection handler.
      *
-     * @var \PDO
+     * @var PDO
      */
     private $_connection = null;
 
@@ -130,7 +130,7 @@ class Connection
     /**
      * Connects to the server.
      *
-     * @throws \Alexya\Database\Exceptions\ConnectionFailed If couldn't connect to host
+     * @throws ConnectionFailed If couldn't connect to host
      */
     public function connect()
     {
@@ -155,13 +155,13 @@ class Connection
      */
     public function isClosed() : bool
     {
-        return ($this->_connection == null);
+        return ($this->_connection === null);
     }
 
     /**
      * Returns the PDO object with current connection.
      *
-     * @return \PDO PDO object.
+     * @return PDO PDO object.
      */
     public function getConnection() : PDO
     {
@@ -187,50 +187,33 @@ class Connection
      *
      * @return mixed Query result.
      *
-     * @throws \Alexya\Database\Exceptions\QueryFailed If the query failed to execute.
+     * @throws QueryFailed If the query failed to execute.
      */
     public function execute(string $query, bool $fetchAll = true, int $fetch = PDO::FETCH_ASSOC)
     {
         $result = $this->_connection->query($query);
 
-        if($result == false) {
+        if($result === false) {
             throw new QueryFailed($query, $this->_connection->errorInfo()[2]);
         }
 
         $this->lastQuery = $query;
 
         if($fetchAll) {
-            $result = $result->fetchAll($fetch);
-        } else {
-            $result = $result->fetch($fetch);
+            return $result->fetchAll($fetch);
         }
 
-        return $result;
-    }
-
-    ///////////////////////////////////
-    // Start Query generation metdos //
-    ///////////////////////////////////
-    /**
-     * Returns a SELECT query builder object.
-     *
-     * @param string|array $rows Rows to select.
-     *
-     * @return \Alexya\Database\Queries\Select SELECT query builder.
-     */
-    public function select($rows) : Select
-    {
-        $query = new Select($this);
-
-        return $query->select($rows);
+        return $result->fetch($fetch);
     }
 
     /**
-     * Returns a INSERT query builder object.
+     * Executes an INSERT query
      *
-     * @param string $table Table to insert.
+     * @param string $query    SQL query to execute.
+     * @param bool   $fetchAll Whether all results should be fetched or not (default = `true`).
+     * @param int    $fetch    How results should be fetched (default = `PDO::FETCH_ASSOC`).
      *
-     * @return \Alexya\Database\Queries\Insert INSERT query builder.
+     * @return int Last inserted ID.
      */
     public function insert() : int
     {
@@ -238,35 +221,4 @@ class Connection
 
         return $this->_connection->lastInsertId();
     }
-
-    /**
-     * Returns a UPDATE query builder object.
-     *
-     * @param string $table Table to update.
-     *
-     * @return \Alexya\Database\Queries\Update UPDATE query builder.
-     */
-    public function update(string $table) : Update
-    {
-        $query = new Update($this);
-
-        return $query->table($table);
-    }
-
-    /**
-     * Returns a DELETE query builder object.
-     *
-     * @param string $table Table to delete.
-     *
-     * @return \Alexya\Database\Queries\Delete DELETE query builder.
-     */
-    public function delete(string $table) : Delete
-    {
-        $query = new Delete($this);
-
-        return $query->table($table);
-    }
-    ////////////////////////////////////
-    // End Query generation metods // //
-    ////////////////////////////////////
 }
