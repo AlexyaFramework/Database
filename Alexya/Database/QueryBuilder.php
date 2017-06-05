@@ -2,48 +2,48 @@
 namespace Alexya\Database;
 
 /**
- * Query builder class
+ * Query builder class.
  *
  * Provides helper methods for building queries in an easy way.
  * Example:
  *
- *     $query = new QueryBuilder()
- *                  ->select()
- *                  ->from("users")
- *                  ->where(
- *                      "AND" => [
- *                          ["username" => "test"],
- *                          ["password" => "test"]
- *                      ]
- *                  )
- *                  ->limit(1);
+ * ```php
+ * $query = new QueryBuilder()
+ *              ->select()
+ *              ->from("users")
+ *              ->where(
+ *                  "AND" => [
+ *                      ["username" => "test"],
+ *                      ["password" => "test"]
+ *                  ]
+ *              )
+ *              ->limit(1);
  *
- *      echo $query->getQuery(); //SELECT * FROM `users` WHERE `username`='test' AND `password`='test' LIMIT 1;
+ * echo $query->getQuery(); //SELECT * FROM `users` WHERE `username`='test' AND `password`='test' LIMIT 1;
+ * ```
  *
  * @author Manulaiko <manulaiko@gmail.com>
- *
- * @package \Alexya\Database
  */
 class QueryBuilder
 {
     /**
-     * Generated query as array
+     * Generated query as array.
      *
-     * @var array;
+     * @var array
      */
     private $_query = [];
 
     /**
-     * Database connection
+     * Database connection.
      *
-     * @var \Alexya\Database\Connection
+     * @var Connection
      */
     private $_connection;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \Alexya\Database\Connection $connection Database connection
+     * @param Connection $connection Database connection.
      */
     public function __construct(Connection $connection)
     {
@@ -54,11 +54,11 @@ class QueryBuilder
     // Start query generation methods //
     ////////////////////////////////////
     /**
-     * Begins the select query
+     * Begins the select query.
      *
-     * @param string|array $columns Column(s) to select, if empty has same effect as "*"
+     * @param string|array $columns Column(s) to select, if empty has same effect as "*".
      *
-     * @return \Alexya\Database\QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object.
      */
     public function select($columns = "*") : QueryBuilder
     {
@@ -68,22 +68,26 @@ class QueryBuilder
         if(is_array($columns)) {
             $select_columns = "";
 
-            for($i = 0; $i < count($columns); $i++) {
+            $size = sizeof($columns);
+            for($i = 0; $i < $size; $i++) {
                 if($i > 0) {
                     $select_columns .= ', ';
                 }
 
                 $select_columns .= '`'. $this->sanitize((string)$columns[$i]) .'`';
             }
-        } else {
-            if(
-                $columns == "*" ||
-                empty($columns)
-            ) {
-                $select_columns = "*";
-            } else {
-                $select_columns = '`'. $this->sanitize((string)$columns) .'`';
-            }
+
+            $this->_query[] = $select_columns;
+
+            return $this;
+        }
+
+        $select_columns = "*";
+        if(
+            !empty($columns) &&
+            $columns !== "*"
+        ) {
+            $select_columns = '`'. $this->sanitize((string)$columns) .'`';
         }
 
         $this->_query[] = $select_columns;
@@ -96,7 +100,7 @@ class QueryBuilder
      *
      * @param string $table Table name
      *
-     * @return \Alexya\Database\QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object
      */
     public function insert(string $table) : QueryBuilder
     {
@@ -111,7 +115,7 @@ class QueryBuilder
      *
      * @param string $table Table name
      *
-     * @return \Alexya\Database\QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object
      */
     public function update(string $table) : QueryBuilder
     {
@@ -126,7 +130,7 @@ class QueryBuilder
      *
      * @param string $table Table name
      *
-     * @return \Alexya\Database\QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object
      */
     public function delete(string $table) : QueryBuilder
     {
@@ -141,7 +145,7 @@ class QueryBuilder
      *
      * @param string $tables Table name
      *
-     * @return \Alexya\Databse\QueryBuilder Chinbility object
+     * @return QueryBuilder Chainability object
      */
     public function from(string $tables) : QueryBuilder
     {
@@ -156,19 +160,21 @@ class QueryBuilder
      *
      * Example:
      *
-     *     $query->where([
-     *         "username" => "test"
-     *     ]);
-     *     $query->where(
-     *         "AND" => [
-     *             ["username" => "test"],
-     *             ["password" => "test"]
-     *         ]
-     *     );
+     * ```php
+     * $query->where([
+     *     "username" => "test"
+     * ]);
+     * $query->where(
+     *     "AND" => [
+     *         ["username" => "test"],
+     *         ["password" => "test"]
+     *     ]
+     * );
+     * ```
      *
      * @param array $condition Where condition
      *
-     * @return \Alexya\Database\QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object
      */
     public function where(array $condition) : QueryBuilder
     {
@@ -187,13 +193,13 @@ class QueryBuilder
      * @param string $column Column name
      * @param string $method Order method
      *
-     * @return \Alexya\Database\QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object
      */
     public function order(string $column, string $method = "DESC") : QueryBuilder
     {
         $this->_query[] = "ORDER BY";
         $this->_query[] = "`". $this->sanitize($column) ."`";
-        $this->_query[] = ($method == "DESC") ? $method : "ASC";
+        $this->_query[] = (strtoupper($method) === "DESC") ? "DESC" : "ASC";
 
         return $this;
     }
@@ -203,7 +209,7 @@ class QueryBuilder
      *
      * @param int|array $limit Limit value
      *
-     * @return \Alexya\Database\QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object
      */
     public function limit($limit) : QueryBuilder
     {
@@ -212,9 +218,11 @@ class QueryBuilder
         if(is_array($limit)) {
             $this->_query[] = $this->getQuoted($limit[0]).",";
             $this->_query[] = $this->getQuoted($limit[1]);
-        } else {
-            $this->_query[] = $this->getQuoted($limit);
+
+            return $this;
         }
+
+        $this->_query[] = $this->getQuoted($limit);
 
         return $this;
     }
@@ -224,7 +232,7 @@ class QueryBuilder
      *
      * @param int $offset Offset value
      *
-     * @return \Alexya\Database\QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object
      */
     public function offset(int $offset) : QueryBuilder
     {
@@ -239,7 +247,7 @@ class QueryBuilder
      *
      * @param array $values Values to set
      *
-     * @return \Alexya\Database\QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object
      */
     public function set(array $values) : QueryBuilder
     {
@@ -260,12 +268,10 @@ class QueryBuilder
      *
      * @param array $values Values to insert
      *
-     * @return \Alexya\Database\QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object
      */
     public function values(array $values) : QueryBuilder
     {
-        global $Logger;
-
         $args    = func_get_args();
         $columns = [];
         $_values = [];
@@ -306,7 +312,7 @@ class QueryBuilder
      *
      * @param mixed $sql SQL to add to query
      *
-     * @return \Alexya\Database\QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object
      */
     public function sql($sql) : QueryBuilder
     {
@@ -358,7 +364,7 @@ class QueryBuilder
             $column   = "`". $this->sanitize($tag[2]) ."`";
             $operator = $tag[4];
 
-            if($operator == "!") {
+            if($operator === "!") {
                 if(is_array($value)) {
                     $str = [];
                     foreach($value as $val) {
@@ -374,19 +380,20 @@ class QueryBuilder
                     $clause .= $column ."!=". $this->getQuoted($value);
                 }
             } else if(
-                $operator == "<>" ||
-                $operator == "><"
+                $operator === "<>" ||
+                $operator === "><"
             ) {
                 if(gettype($value) == "array") {
+                    $c = "";
                     if($operator == "><") {
-                        $clause .= "NOT ";
+                        $c .= "NOT ";
                     }
 
-                     $clause = '('. $column .' BETWEEN '. $this->getQuoted($value[0]) .' AND '. $this->getQuoted($value[1]) .')';
+                    $clause = '('. $column .' '. $c .' BETWEEN '. $this->getQuoted($value[0]) .' AND '. $this->getQuoted($value[1]) .')';
                 }
             } else if(
-                $operator == '~' ||
-                $operator == '!~'
+                $operator === '~' ||
+                $operator === '!~'
             ) {
                 if(!is_array($value)) {
                     $value = array($value);
@@ -397,7 +404,7 @@ class QueryBuilder
                     $item   = strval($item);
                     $suffix = mb_substr($item, -1, 1);
 
-                    if($suffix == '_') {
+                    if($suffix === '_') {
                         $item = substr_replace($item, '%', -1);
                     } else if ($suffix === '%') {
                         $item = '%'. substr_replace($item, '', -1, 1);
@@ -412,31 +419,31 @@ class QueryBuilder
             } else if(in_array($operator, array('>', '>=', '<', '<='))) {
                 if(is_numeric($value)) {
                     $clause = $column .' '. $operator .' '. $value;
-                } else if (strpos($key, '#') === 0) {
+                } else if(strpos($key, '#') === 0) {
                     $clause = $column .' '. $operator .' '. $this->getQuoted($value);
                 } else {
                     $clause = $column .' '. $operator .' '. $this->getQuoted($value);
                 }
             }
-        } else if($column == "AND") {
+        } else if($column === "AND") {
             if(!is_array($value)) {
                 return "";
             }
 
             $cond = [];
-            foreach($value as $key => $value) {
-                $cond[] = $this->parseTags([$key, $value]);
+            foreach($value as $key => $v) {
+                $cond[] = $this->parseTags([$key, $v]);
             }
 
             $clause = implode(" AND ", $cond);
-        } else if($column == "OR") {
+        } else if($column === "OR") {
             if(!is_array($value)) {
                 return "";
             }
 
             $cond = [];
-            foreach($value as $key => $value) {
-                $cond[] = $this->parseTags([$key, $value]);
+            foreach($value as $key => $v) {
+                $cond[] = $this->parseTags([$key, $v]);
             }
 
             $clause = implode(" OR ", $cond);
@@ -487,7 +494,7 @@ class QueryBuilder
     }
 
     /**
-     * Resets query to begining
+     * Resets query to beginning
      */
     public function clear()
     {
@@ -503,12 +510,9 @@ class QueryBuilder
      */
     public function sanitize(string $input) : string
     {
-        return $input;
-
         $input = $this->_connection->getConnection()->quote($input);
-        $input = substr($input, 1, strlen($input) - 1);
 
-        return substr($input, -1);
+        return substr($input, 1, -1);
     }
 
     /**
