@@ -6,6 +6,7 @@ use Alexya\Database\{
     QueryBuilder
 };
 
+use Alexya\Tools\Collection;
 use Alexya\Tools\Str;
 
 /**
@@ -861,6 +862,26 @@ class Model
 
         $return = [];
         foreach($this->_data as $key => $value) {
+            if($value instanceof Model) {
+                $return[$key] = $value->asArray();
+
+                continue;
+            }
+            if($value instanceof Collection) {
+                $return[$key] = $value->getAll();
+
+                continue;
+            }
+
+            if(
+                is_array($value) ||
+                is_object($value)
+            ) {
+                $return[$key] = (array)$value;
+
+                continue;
+            }
+
             $decoded = json_decode($value);
 
             $return[$key] = $decoded;
