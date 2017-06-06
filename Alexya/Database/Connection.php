@@ -16,11 +16,11 @@ use \PDOException;
  *
  * The constructor accepts the following parameters:
  *
- *  * A string being server's host/ip
- *  * An integer being server's port
- *  * A string being database username
- *  * A string being database password
- *  * A string being database password
+ *  * A string being server's host/ip.
+ *  * An integer being server's port.
+ *  * A string being database username.
+ *  * A string being database password.
+ *  * A string being database password.
  *
  * @author Manulaiko <manulaiko@gmail.com>
  */
@@ -122,7 +122,7 @@ class Connection
     /**
      * Closes connection.
      */
-    public function close()
+    public function close() : void
     {
         $this->_connection = null;
     }
@@ -132,7 +132,7 @@ class Connection
      *
      * @throws ConnectionFailed If couldn't connect to host
      */
-    public function connect()
+    public function connect() : void
     {
         try {
             $this->_connection = new PDO(
@@ -207,7 +207,7 @@ class Connection
     }
 
     /**
-     * Executes an INSERT query
+     * Executes an INSERT query.
      *
      * @param string $query    SQL query to execute.
      * @param bool   $fetchAll Whether all results should be fetched or not (default = `true`).
@@ -215,9 +215,9 @@ class Connection
      *
      * @return int Last inserted ID.
      */
-    public function insert() : int
+    public function insert(string $query, bool $fetchAll = true, int $fetch = PDO::FETCH_ASSOC) : int
     {
-        $this->execute(... func_get_args());
+        $this->execute($query, $fetchAll, $fetch);
 
         return $this->_connection->lastInsertId();
     }

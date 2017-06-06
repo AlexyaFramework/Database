@@ -11,6 +11,7 @@ use Alexya\Tools\Str;
 
 /**
  * Model class.
+ * ============
  *
  * This class acts as the mediator between the database table and the PHP code.
  *
@@ -490,7 +491,7 @@ class Model
      *
      * Is executed once the constructor has finished.
      */
-    public function onInstance()
+    public function onInstance() : void
     {
 
     }
@@ -635,7 +636,7 @@ class Model
      * For more information about the possible values of the array see
      * the documentation for the `$_relations` property.
      */
-    protected function _setRelations()
+    protected function _setRelations() : void
     {
         foreach(static::$_relations as $class => $options) {
             $result = [];
@@ -766,7 +767,7 @@ class Model
      * @param string $name  Column name.
      * @param string $value Column value.
      */
-    public function set(string $name, $value)
+    public function set(string $name, $value) : void
     {
         $this->_data[$name] = $value;
 
@@ -793,7 +794,7 @@ class Model
      * @param string $name  Column name.
      * @param string $value Column value.
      */
-    public function __set(string $name, $value)
+    public function __set(string $name, $value) : void
     {
         $this->set($name, $value);
     }
@@ -801,7 +802,7 @@ class Model
     /**
      * Saves the changes to the database.
      */
-    public function save()
+    public function save() : void
     {
         $query = new QueryBuilder(self::$_connection);
 

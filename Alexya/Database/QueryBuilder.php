@@ -3,6 +3,7 @@ namespace Alexya\Database;
 
 /**
  * Query builder class.
+ * ====================
  *
  * Provides helper methods for building queries in an easy way.
  * Example:
@@ -56,7 +57,7 @@ class QueryBuilder
     /**
      * Begins the select query.
      *
-     * @param string|array $columns Column(s) to select, if empty has same effect as "*".
+     * @param string|iterable $columns Column(s) to select, if empty has same effect as "*".
      *
      * @return QueryBuilder Chainability object.
      */
@@ -65,7 +66,7 @@ class QueryBuilder
         $this->_query[] = "SELECT";
 
         //Parse column(s)
-        if(is_array($columns)) {
+        if(is_iterable($columns)) {
             $select_columns = "";
 
             $size = sizeof($columns);
@@ -96,11 +97,11 @@ class QueryBuilder
     }
 
     /**
-     * Begins the insert query
+     * Begins the insert query.
      *
-     * @param string $table Table name
+     * @param string $table Table name.
      *
-     * @return QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object.
      */
     public function insert(string $table) : QueryBuilder
     {
@@ -111,11 +112,11 @@ class QueryBuilder
     }
 
     /**
-     * Begins the update query
+     * Begins the update query.
      *
-     * @param string $table Table name
+     * @param string $table Table name.
      *
-     * @return QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object.
      */
     public function update(string $table) : QueryBuilder
     {
@@ -126,11 +127,11 @@ class QueryBuilder
     }
 
     /**
-     * Begins the delete query
+     * Begins the delete query.
      *
-     * @param string $table Table name
+     * @param string $table Table name.
      *
-     * @return QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object.
      */
     public function delete(string $table) : QueryBuilder
     {
@@ -141,11 +142,11 @@ class QueryBuilder
     }
 
     /**
-     * Begins the FORM part of the query
+     * Begins the FORM part of the query.
      *
-     * @param string $tables Table name
+     * @param string $tables Table name.
      *
-     * @return QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object.
      */
     public function from(string $tables) : QueryBuilder
     {
@@ -156,7 +157,7 @@ class QueryBuilder
     }
 
     /**
-     * Begins the WHERE statement of the query
+     * Begins the WHERE statement of the query.
      *
      * Example:
      *
@@ -172,9 +173,9 @@ class QueryBuilder
      * );
      * ```
      *
-     * @param array $condition Where condition
+     * @param array $condition Where condition.
      *
-     * @return QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object.
      */
     public function where(array $condition) : QueryBuilder
     {
@@ -188,12 +189,12 @@ class QueryBuilder
     }
 
     /**
-     * Begins the ORDER BY part of the query
+     * Begins the ORDER BY part of the query.
      *
-     * @param string $column Column name
-     * @param string $method Order method
+     * @param string $column Column name.
+     * @param string $method Order method.
      *
-     * @return QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object.
      */
     public function order(string $column, string $method = "DESC") : QueryBuilder
     {
@@ -205,11 +206,11 @@ class QueryBuilder
     }
 
     /**
-     * Begins the LIMIT part of the query
+     * Begins the LIMIT part of the query.
      *
-     * @param int|array $limit Limit value
+     * @param int|array $limit Limit value.
      *
-     * @return QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object.
      */
     public function limit($limit) : QueryBuilder
     {
@@ -264,15 +265,14 @@ class QueryBuilder
     }
 
     /**
-     * Begins the VALUES part of the query
+     * Begins the VALUES part of the query.
      *
-     * @param array $values Values to insert
+     * @param array $values Values to insert.
      *
-     * @return QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object.
      */
     public function values(array $values) : QueryBuilder
     {
-        $args    = func_get_args();
         $columns = [];
         $_values = [];
 
@@ -308,13 +308,13 @@ class QueryBuilder
     }
 
     /**
-     * Adds raw SQL to the query
+     * Adds raw SQL to the query.
      *
-     * @param mixed $sql SQL to add to query
+     * @param string $sql SQL to add to query.
      *
-     * @return QueryBuilder Chainability object
+     * @return QueryBuilder Chainability object.
      */
-    public function sql($sql) : QueryBuilder
+    public function sql(string $sql) : QueryBuilder
     {
         $this->_query[] = $sql;
 
@@ -325,9 +325,9 @@ class QueryBuilder
     //////////////////////////////////
 
     /**
-     * Parses and returns the query
+     * Parses and returns the query.
      *
-     * @return string SQL Query
+     * @return string SQL Query.
      */
     public function getQuery() : string
     {
@@ -337,9 +337,9 @@ class QueryBuilder
     }
 
     /**
-     * To string method
+     * To string method.
      *
-     * @return string SQL Query
+     * @return string SQL Query.
      */
     public function __toString() : string
     {
@@ -347,11 +347,11 @@ class QueryBuilder
     }
 
     /**
-     * Parses tags
+     * Parses tags.
      *
-     * @param array $source idk proper description
+     * @param array $source idk proper description.
      *
-     * @return string Source without tags
+     * @return string Source without tags.
      */
     public function parseTags(array $source) : string
     {
@@ -419,8 +419,6 @@ class QueryBuilder
             } else if(in_array($operator, array('>', '>=', '<', '<='))) {
                 if(is_numeric($value)) {
                     $clause = $column .' '. $operator .' '. $value;
-                } else if(strpos($key, '#') === 0) {
-                    $clause = $column .' '. $operator .' '. $this->getQuoted($value);
                 } else {
                     $clause = $column .' '. $operator .' '. $this->getQuoted($value);
                 }
@@ -470,11 +468,11 @@ class QueryBuilder
     }
 
     /**
-     * Returns $str with quotes
+     * Returns `$str` with quotes.
      *
-     * @param mixed $str String to quote
+     * @param mixed $str String to quote.
      *
-     * @return string String with quotes
+     * @return string String with quotes.
      */
     public function getQuoted($str) : string
     {
@@ -494,7 +492,7 @@ class QueryBuilder
     }
 
     /**
-     * Resets query to beginning
+     * Resets query to beginning.
      */
     public function clear()
     {
@@ -512,7 +510,11 @@ class QueryBuilder
     {
         $input = $this->_connection->getConnection()->quote($input);
 
-        return substr($input, 1, -1);
+        if (strpos($input, "'") === 0) {
+            $input = substr($input, 1, -1);
+        }
+
+        return $input;
     }
 
     /**
