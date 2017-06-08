@@ -8,41 +8,30 @@ use Alexya\Database\{
 
 use Alexya\Tools\Collection;
 use Alexya\Tools\Str;
+use Exception;
 
 /**
  * Model class.
  * ============
  *
- * This class acts as the mediator between the database table and the PHP code.
+ * This class represents a database query result as a PHP object
  *
  * Before anything you should initialize the class with the method `initialize`.
  * It accepts as parameter an object of type `\Alexya\Database\Connection` being the connection
- * to the database and a string being the base namespace where the Model classes are located, this
- * is if you want to store the Model classes in a separated namespace (default is "\"):
+ * to the database.
  *
  * ```php
  * $connection = new Connection("localhost", 3306, "root", "", "alexya");
- * Model::initialize($connection, "\Application\ORM");
+ * Model::initialize($connection);
  * ```
  *
  * You should write a class that extends this for each model, but when you're following
  * the naming conventions you'll surely finish with a package full of empty classes.
  * To prevent this you can use the method `instance` which accepts as parameter the name
  * of the database table.
- * Also, all static methods accepts as last parameter the name of the table that will be used.
  *
  * Extending this class allows you to take more control over it. You can specify
  * the name of the table, the name of the primary key, relations...
- *
- * The table name is, by default, the `snake_case`, plural name of the class, if you want to override it
- * change the property `_table` with the name of the table:
- *
- * ```php
- * class UsersTable extends Model
- * {
- *     protected $_table = "users"; // Without this, the table name would be `users_tables`, see \Alexya\Database\ORM\Model::getTable
- * }
- * ```
  *
  * The primary key is, by default, `id`, if you want to override it change the property `_primaryKey`
  * with the name of the primary key:
@@ -55,23 +44,6 @@ use Alexya\Tools\Str;
  * ```
  *
  * The method `onInstance` is executed when the class has been instantiated, use it instead of the constructor.
- *
- * The method `find` finds a record from the database and returns an instance of the Model class.
- * It accepts as parameter an integer being the value of the primary key or an array containing the
- * `WHERE` clause of the query:
- *
- * ```php
- * $user = UsersTable::find(1); // SELECT * FROM `users` WHERE `userID`=1 LIMIT 1
- * $user = UsersTable::find([
- *     "AND" => [
- *         "username" => "test",
- *         "password" => "test"
- *     ]
- * ]); // SELECT * FROM `users` WHERE `username`='test' AND `password`='test' LIMIT 1
- * ```
- *
- * You can send a second integer parameter being the amount of records to fetch from the database.
- * If it's omitted it will return a single record, otherwise an array of specified amount of records.
  *
  * To create a record use the method `create` which returns an instance of the Model class or instance a
  * new object directly:
@@ -97,18 +69,11 @@ class Model
     // Start Static methods and properties //
     /////////////////////////////////////////
     /**
-     * Database connection.
+     * Connection object.
      *
      * @var Connection
      */
     protected static $_connection;
-
-    /**
-     * Base namespace of the ORM classes.
-     *
-     * @var string
-     */
-    protected static $_baseNamespace = "\\";
 
     /**
      * Relations array.
@@ -190,21 +155,25 @@ class Model
     protected static $_relations = [];
 
     /**
-     * Initializes the class.
+     * Initializes the model.
      *
-     * @param Connection $connection    Database connection.
-     * @param string     $baseNamespace Base namespace of the ORM classes.
+     * @param Connection $connection Connection object.
+     *
+     * @throws Exception If the model has already been initialized.
      */
-    public static function initialize(Connection $connection, string $baseNamespace = "\\")
+    public static function initialize(Connection $connection) : void
     {
-        self::$_connection    = $connection;
-        self::$_baseNamespace = Str::trailing($baseNamespace, "\\");
+        if(static::$_connection != null) {
+            throw new Exception("Model class has already been initialized!");
+        }
+
+        static::$_connection = $connection;
     }
 
     /**
      * Returns a new instance of the class.
      *
-     * @param string $table Table name
+     * @param string $table Table name.
      *
      * @return Model Instance of the class.
      */
@@ -229,199 +198,6 @@ class Model
         $model->_table = $table;
 
         return $model;
-    }
-
-    /**
-     * Finds and returns one or more record from the database.
-     *
-     * @param int|string|array $id           Primary key value or `WHERE` clause.
-     * @param int|array        $limit        Amount of records to retrieve from database,
-     *                                       if `-1` (or empty array) an instance of the Model
-     *                                       class will be returned.
-     * @param string           $table        Table that will be used to get the records from.
-     * @param bool             $setRelations Whether relations should be processed or not.
-     *
-     * @return Model|Model[] Records from the database.
-     */
-    public static function find($id, $limit = -1, string $table = "", bool $setRelations = true)
-    {
-        $query = new QueryBuilder(self::$_connection);
-        $model = new static();
-
-        $query->select("*");
-
-        if($table === "") {
-            $query->from($model->getTable());
-        } else {
-            $query->from($table);
-        }
-
-        $query = static::_setWhere($id, $query, $model->_primaryKey);
-
-        if(
-            is_int($limit) &&
-            $limit < 0
-        ) {
-            $query->limit(1);
-        } else {
-            $query->limit($limit);
-        }
-
-        $result = $query->execute();
-        $return = [];
-
-        foreach($result as $r) {
-            if(
-                empty($limit) ||
-                is_int($limit) && $limit < 0
-            ) {
-                $model = new static($r, $setRelations);
-                if($table !== "") {
-                    $model->_table = $table;
-                }
-
-                return $model;
-            }
-
-            $model = new static($r, $setRelations);
-            if($table !== "") {
-                $model->_table = $table;
-            }
-
-            $return[] = $model;
-        }
-
-        return $return;
-    }
-
-    /**
-     * Returns all records from database.
-     *
-     * @param array  $where        Where clause array.
-     * @param string $table        Table that will be used to get the records from.
-     * @param bool   $setRelations Whether relations should be processed or not.
-     *
-     * @return Model[] Records from database.
-     */
-    public static function all(array $where = [], string $table = "", bool $setRelations = true) : array
-    {
-        $query = new QueryBuilder(self::$_connection);
-        $model = new static();
-
-        $query->select("*");
-
-        if($table === "") {
-            $query->from($model->getTable());
-        } else {
-            $query->from($table);
-        }
-
-        $query = static::_setWhere($where, $query, $model->_primaryKey);
-
-        $result = $query->execute();
-        $return = [];
-
-        foreach($result as $r) {
-            $model = new static($r, $setRelations);
-            if($table !== "") {
-                $model->_table = $table;
-            }
-
-            $return[] = $model;
-        }
-
-        return $return;
-    }
-
-    /**
-     * Returns the latest records from database.
-     *
-     * @param int    $length       Length of the array.
-     * @param string $column       Column to order the records (default = "id").
-     * @param string $table        Table that will be used to get the records from.
-     * @param bool   $setRelations Whether relations should be processed or not.
-     *
-     * @return Model[] Records from database.
-     */
-    public static function latest(int $length = 10, string $column = "id", string $table = "", bool $setRelations = true) : array
-    {
-        $query = new QueryBuilder(self::$_connection);
-        $model = new static();
-
-        $query->select("*");
-
-        if($table === "") {
-            $query->from($model->getTable());
-        } else {
-            $query->from($table);
-        }
-
-        $query->order($column)
-              ->limit($length);
-
-        $result = $query->execute();
-        $return = [];
-
-        foreach($result as $r) {
-            $model = new static($r, $setRelations);
-            if($table !== "") {
-                $model->_table = $table;
-            }
-
-            $return[] = $model;
-        }
-
-        return $return;
-    }
-
-    /**
-     * Sets the WHERE param to the query.
-     *
-     * @param int|array    $where WHERE param.
-     * @param QueryBuilder $query Query to build.
-     * @param string       $primaryKey Table primary key.
-     *
-     * @return QueryBuilder Query object.
-     */
-    private static function _setWhere($where, QueryBuilder $query, string $primaryKey = "id") : QueryBuilder
-    {
-        if(!is_array($where)) {
-            return $query->where([
-                $primaryKey => $where
-            ]);
-        }
-
-        $columns = $where;
-
-        unset($columns["ORDER BY"]);
-        unset($columns["LIMIT"]);
-        unset($columns["OFFSET"]);
-
-        if(!empty($columns)) {
-            $query->where($columns);
-        }
-
-        if(isset($where["ORDER BY"])) {
-            $order = $where["ORDER BY"];
-            if(!is_array($order)) {
-                $order = [$order];
-            }
-
-            $query->order(... $order);
-        }
-        if(isset($where["LIMIT"])) {
-            $limit = $where["LIMIT"];
-            if(!is_array($limit)) {
-                $limit = [$limit];
-            }
-
-            $query->limit(... $limit);
-        }
-        if(isset($where["OFFSET"])) {
-            $query->offset($where["OFFSET"]);
-        }
-
-        return $query;
     }
 
     ///////////////////////////////////////
@@ -480,7 +256,7 @@ class Model
         $this->_data = $columns;
 
         if($setRelations) {
-            $this->_setRelations();
+            $this->setRelations();
         }
 
         $this->onInstance();
@@ -636,7 +412,7 @@ class Model
      * For more information about the possible values of the array see
      * the documentation for the `$_relations` property.
      */
-    protected function _setRelations() : void
+    protected function setRelations() : void
     {
         foreach(static::$_relations as $class => $options) {
             $result = [];
@@ -649,12 +425,12 @@ class Model
             }
 
             $table = "";
-            if(!Str::startsWith($class, static::$_baseNamespace)) {
-                $class = static::$_baseNamespace . $class;
+            if(!Str::startsWith($class, "\\Application\\ORM\\")) {
+                $class = "\\Application\\ORM\\". $class;
             }
 
             if(!class_exists($class)) {
-                $table = substr($class, strlen(static::$_baseNamespace), strlen($class));
+                $table = substr($class, 17);
                 $class = "\\Alexya\\Database\\ORM\\Model";
             }
 
@@ -679,7 +455,7 @@ class Model
             }
             // Name of the property to create
             if(empty($options["name"])) {
-                $options["name"] = str_replace(static::$_baseNamespace, "", $class);
+                $options["name"] = str_replace("\\Application\\ORM\\", "", $class);
                 $options["name"] = explode("\\", $class);
                 $options["name"] = $options["name"][count($options["name"]) - 1];
             }
@@ -697,7 +473,7 @@ class Model
             }
             // Local key (foreign_table_local_primary_key)
             if(empty($options["localKey"])) {
-                $options["localKey"] = $foreign->getTable()."_".$local->_primaryKey;
+                $options["localKey"] = $foreign->_table."_".$local->_primaryKey;
                 if($table != "") {
                     $options["localKey"] = $table."_".$local->_primaryKey;
                 }
@@ -712,16 +488,16 @@ class Model
                 // `has_one` relations have only one record
                 // Find it given the fact that the `foreignKey` should be
                 // the value as `localKey`
-                $result = ($options["class"])::find([
+                $result = Factory::find([
                     $options["foreignKey"] => $this->_data[$options["localKey"]]
-                ], -1, $table, $options["setRelations"]);
+                ], $table);
             } else if($options["type"] === "has_many") {
                 // `has_many` relations have many records,
                 // Retrieve all of them, getting the specified amount of records
                 // and where the `foreignKey` is the same as `localKey`
-                $res = ($class)::find([
+                $res = Factory::where([
                     $options["foreignKey"] => $this->_data[$options["localKey"]]
-                ], $options["amount"], $table, $options["setRelations"]);
+                ], $options["amount"], $table);
 
                 $result = $res;
                 // Now that we have all records that matches the local/foreign key
@@ -807,10 +583,12 @@ class Model
         $query = new QueryBuilder(self::$_connection);
 
         if($this->_isInsert) {
-            $query->insert($this->getTable())
-                  ->values($this->_changed);
+            $query->insert($this->_table)
+                  ->values($this->_changed)
+                  ->execute();
 
-            $id = self::$_connection->insert($query->getQuery());
+            $id = static::$_connection->getConnection()->lastInsertId();
+
             $this->_data[$this->_primaryKey] = $id;
 
             $this->_isInsert = false;
@@ -819,7 +597,7 @@ class Model
             return;
         }
 
-        $query->update($this->getTable())
+        $query->update($this->_table)
               ->set($this->_changed)
               ->where([
                   $this->_primaryKey => $this->_data[$this->_primaryKey]
@@ -827,25 +605,6 @@ class Model
               ->execute();
 
         $this->_changed = [];
-    }
-
-    /**
-     * Builds and returns table name.
-     *
-     * @return string Table name.
-     */
-    public function getTable() : string
-    {
-        if(!empty($this->_table)) {
-            return $this->_table;
-        }
-
-        $class = explode("\\", str_replace(self::$_baseNamespace, "", "\\".get_called_class()));
-        $table = Str::snake(Str::plural($class));
-
-        $this->_table = $table;
-
-        return $this->_table;
     }
 
     /**

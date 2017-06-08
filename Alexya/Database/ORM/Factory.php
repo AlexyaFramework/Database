@@ -128,6 +128,8 @@ class Factory
         if($primaryKeyParser != null) {
             static::$_primaryKeyParser = $primaryKeyParser;
         }
+
+        Model::initialize($connection);
     }
 
     /**
